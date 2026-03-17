@@ -16,6 +16,7 @@ import { WorkScheduleModule } from './work-schedule/work-schedule.module';
 import { PushNotificationModule } from './push-notification/push-notification.module';
 import { BusStationModule } from './bus-station/bus-station.module';
 import { GeocodingModule } from './geocoding/geocoding.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { GeocodingModule } from './geocoding/geocoding.module';
     PushNotificationModule,
     BusStationModule,
     GeocodingModule,
+    UploadModule,
   ],
 })
 export class AppModule { }
