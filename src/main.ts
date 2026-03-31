@@ -58,7 +58,7 @@ async function bootstrap() {
       persistAuthorization: true, // Giữ token khi refresh trang
     },
   });
-  const port = process.env.PORT || 5001;
+  const port = process.env.PORT || 3002;
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Backend is running on http://localhost:${port}`);
