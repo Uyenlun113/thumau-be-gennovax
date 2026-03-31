@@ -16,6 +16,9 @@ export class SupplyHistory {
   @Prop({ type: Types.ObjectId, ref: 'Supply', required: true })
   vatTu: Types.ObjectId;
 
+  @Prop({ type: String })
+  loaiVatTu: string; // Loại vật tư (NIPT, ADN, CELL, HPV, KHAC) - dùng để nhóm
+
   @Prop({ 
     type: String, 
     enum: HistoryType, 
@@ -29,7 +32,7 @@ export class SupplyHistory {
   @Prop()
   lyDo: string; // Lý do thay đổi
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User' })
   nguoiThucHien: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'SupplyAllocation' })
@@ -37,6 +40,12 @@ export class SupplyHistory {
 
   @Prop({ type: String })
   phongKham: string; // Mã phòng khám (dùng khi không có phiếu cấp phát)
+
+  @Prop({ type: String })
+  caseCode: string; // Mã ca (dùng để kiểm tra trùng lặp khi nhập mẫu từ API)
+
+  @Prop()
+  receivedAt: Date; // Ngày nhận mẫu từ API bên thứ 3
 
   @Prop({ required: true })
   thoiGian: Date;

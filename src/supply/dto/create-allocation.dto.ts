@@ -41,4 +41,19 @@ export class CreateAllocationDto {
   @ValidateNested({ each: true })
   @Type(() => SupplyItemDto)
   danhSachVatTu: SupplyItemDto[];
+
+  @ApiPropertyOptional({ description: 'Người nhận hàng', example: 'Nguyễn Văn A' })
+  @IsOptional()
+  @IsString()
+  nguoiNhan?: string;
+
+  @ApiPropertyOptional({ description: 'Địa chỉ nhận hàng', example: '123 Đường ABC, Quận 1, TP.HCM' })
+  @IsOptional()
+  @IsString()
+  diaChi?: string;
+
+  @ApiPropertyOptional({ description: 'Số điện thoại người nhận', example: '0901234567' })
+  @IsOptional()
+  @IsString()
+  soDienThoai?: string;
 }

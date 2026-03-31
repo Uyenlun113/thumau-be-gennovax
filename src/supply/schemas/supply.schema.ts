@@ -8,6 +8,14 @@ export enum SupplyStatus {
   CAN_NHAP_THEM = 'CAN_NHAP_THEM', // Cần nhập thêm (tồn kho < mức tối thiểu)
 }
 
+export enum SupplyCategory {
+  NIPT = 'NIPT',
+  ADN = 'ADN',
+  CELL = 'CELL',
+  HPV = 'HPV',
+  KHAC = 'KHAC',
+}
+
 @Schema({ timestamps: true })
 export class Supply {
   @Prop({ required: true, unique: true })
@@ -15,6 +23,13 @@ export class Supply {
 
   @Prop({ required: true })
   tenVatTu: string; // Tên vật tư
+
+  @Prop({ 
+    type: String, 
+    enum: SupplyCategory, 
+    required: true 
+  })
+  loaiVatTu: SupplyCategory; // Loại vật tư (NIPT, ADN, CELL...)
 
   @Prop()
   moTa: string; // Mô tả chi tiết
@@ -30,6 +45,9 @@ export class Supply {
 
   @Prop()
   hinhAnh: string; // URL hình ảnh vật tư
+
+  @Prop()
+  hanSuDung: Date; // Hạn sử dụng
 
   @Prop({ 
     type: String, 

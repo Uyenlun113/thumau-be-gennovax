@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Clinic, ClinicSchema } from '../clinic/schemas/clinic.schema';
 import { SupplyController } from './supply.controller';
+import { SupplyDebugController } from './supply-debug.controller';
 import { SupplyService } from './supply.service';
+import { SupplyCronService } from './supply-cron.service';
 import { Supply, SupplySchema } from './schemas/supply.schema';
 import { SupplyAllocation, SupplyAllocationSchema } from './schemas/supply-allocation.schema';
 import { SupplyHistory, SupplyHistorySchema } from './schemas/supply-history.schema';
@@ -16,8 +18,8 @@ import { SupplyHistory, SupplyHistorySchema } from './schemas/supply-history.sch
       { name: Clinic.name, schema: ClinicSchema },
     ]),
   ],
-  controllers: [SupplyController],
-  providers: [SupplyService],
+  controllers: [SupplyController, SupplyDebugController],
+  providers: [SupplyService, SupplyCronService],
   exports: [SupplyService],
 })
 export class SupplyModule {}

@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permission } from '../role/schemas/role.schema';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { AutoDeductStockDto } from './dto/auto-deduct-stock.dto';
 import { ConfirmDeliveryDto } from './dto/confirm-delivery.dto';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { CreateSupplyDto } from './dto/create-supply.dto';
@@ -453,6 +454,83 @@ export class SupplyController {
   @ApiResponse({ status: 404, description: 'Không tìm thấy bản ghi' })
   async deleteSampleReturnHistory(@Param('id') id: string) {
     return this.supplyService.deleteSampleReturnHistory(id);
+  }
+
+  // ============ TỰ ĐỘNG TRỪ TỒN KHO THEO SERVICE TYPE ============
+
+  @Post('auto-deduct-stock')
+  @Permissions(Permission.SUPPLY_UPDATE)
+  @ApiOperation({ summary: 'Tự động trừ tồn kho dựa vào loại dịch vụ' })
+  @ApiResponse({ status: 200, description: 'Trừ tồn kho thành công' })
+  @ApiResponse({ status: 400, description: 'Không tìm thấy vật tư hoặc dữ liệu không hợp lệ' })
+  async autoDeductStock(@Body() autoDeductStockDto: AutoDeductStockDto) {
+    return this.supplyService.autoDeductStockByServiceType(autoDeductStockDto);
+  }
+
+  @Get('external/cases')
+  @Permissions(Permission.SUPPLY_VIEW)
+  @ApiOperation({ summary: 'Lấy danh sách ca từ API bên thứ 3' })
+  @ApiQuery({ name: 'page', required: false, description: 'Số trang' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Số bản ghi mỗi trang' })
+  @ApiResponse({ status: 200, description: 'Danh sách ca' })
+  async getExternalCases(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.supplyService.getExternalCases({
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 10,
+    });
+  }
+
+  @Post('external/cases/sync')
+  @Permissions(Permission.SUPPLY_UPDATE)
+  @ApiOperation({ summary: 'Đồng bộ ca từ API bên thứ 3 và tự động trừ tồn kho' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        nguoiThucHien: { type: 'string', description: 'ID người thực hiện' },
+        startDate: { type: 'string', description: 'Ngày bắt đầu (YYYY-MM-DD)' },
+        endDate: { type: 'string', description: 'Ngày kết thúc (YYYY-MM-DD)' },
+      },
+      required: ['nguoiThucHien'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Đồng bộ thành công' })
+  async syncExternalCases(@Body() body: { nguoiThucHien: string; startDate?: string; endDate?: string }) {
+    return this.supplyService.syncExternalCasesAndDeductStock(body);
+  }
+
+  @Get('external/sources')
+  @Permissions(Permission.SUPPLY_VIEW)
+  @ApiOperation({ summary: 'Lấy danh sách phòng khám từ API bên thứ 3' })
+  @ApiResponse({ status: 200, description: 'Danh sách phòng khám' })
+  async getExternalSources() {
+    return this.supplyService.getExternalSources();
+  }
+
+  @Post('external/sources/sync')
+  @Permissions(Permission.SUPPLY_UPDATE)
+  @ApiOperation({ summary: 'Đồng bộ phòng khám từ API bên thứ 3' })
+  @ApiResponse({ status: 200, description: 'Đồng bộ thành công' })
+  async syncExternalSources() {
+    return this.supplyService.syncExternalSources();
+  }
+
+  @Post('cleanup-invalid-history')
+  @Permissions(Permission.SUPPLY_UPDATE)
+  @ApiOperation({ summary: 'Dọn dẹp các bản ghi lịch sử có nguoiThucHien không hợp lệ' })
+  @ApiResponse({ status: 200, description: 'Dọn dẹp thành công' })
+  async cleanupInvalidHistory() {
+    return this.supplyService.cleanupInvalidHistory();
+  }
+
+  @Get('debug/check-supplies-by-type/:serviceType')
+  @ApiOperation({ summary: 'Debug: Kiểm tra vật tư theo loại' })
+  @ApiResponse({ status: 200, description: 'Danh sách vật tư' })
+  async debugCheckSuppliesByType(@Param('serviceType') serviceType: string) {
+    return this.supplyService.debugCheckSuppliesByType(serviceType);
   }
 
  

@@ -9,8 +9,8 @@ export class Clinic extends Document {
   @Prop({ required: true })
   tenPhongKham: string;
 
-  @Prop({ required: true })
-  diaChi: string;
+  @Prop()
+  diaChi?: string;
 
   @Prop({ type: { lat: Number, lng: Number } })
   toaDo?: {

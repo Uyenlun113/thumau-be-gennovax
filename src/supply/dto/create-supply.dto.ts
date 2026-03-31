@@ -1,6 +1,6 @@
 import { IsString, IsNumber, IsOptional, IsEnum, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SupplyStatus } from '../schemas/supply.schema';
+import { SupplyStatus, SupplyCategory } from '../schemas/supply.schema';
 
 export class CreateSupplyDto {
   @ApiPropertyOptional({ description: 'Mã vật tư (tự động sinh nếu không nhập)', example: 'VT001' })
@@ -11,6 +11,10 @@ export class CreateSupplyDto {
   @ApiProperty({ description: 'Tên vật tư', example: 'Bộ dụng cụ CELLPREP' })
   @IsString()
   tenVatTu: string;
+
+  @ApiProperty({ description: 'Loại vật tư', enum: SupplyCategory, example: SupplyCategory.CELL })
+  @IsEnum(SupplyCategory)
+  loaiVatTu: SupplyCategory;
 
   @ApiPropertyOptional({ description: 'Mô tả chi tiết', example: 'Bộ dụng cụ thu mẫu tế bào cổ tử cung' })
   @IsOptional()
@@ -38,6 +42,11 @@ export class CreateSupplyDto {
   @IsOptional()
   @IsString()
   hinhAnh?: string;
+
+  @ApiPropertyOptional({ description: 'Hạn sử dụng', example: '2025-12-31' })
+  @IsOptional()
+  @IsString()
+  hanSuDung?: string;
 
   @ApiPropertyOptional({ description: 'Trạng thái vật tư', enum: SupplyStatus, example: SupplyStatus.BINH_THUONG })
   @IsOptional()

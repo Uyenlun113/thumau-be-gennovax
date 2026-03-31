@@ -67,6 +67,15 @@ export class SupplyAllocation {
   ghiChu: string; // Ghi chú khi giao hàng
 
   @Prop()
+  nguoiNhan: string; // Người nhận hàng
+
+  @Prop()
+  diaChi: string; // Địa chỉ nhận hàng
+
+  @Prop()
+  soDienThoai: string; // Số điện thoại người nhận
+
+  @Prop()
   anhGiaoNhan: string; // Ảnh giao nhận
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
