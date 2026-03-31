@@ -696,6 +696,8 @@ export class SupplyService {
 
   // ============ BÁO CÁO TỒN KHO ============
 
+  // DEPRECATED: Báo cáo theo phiếu cấp không còn dùng nữa
+  // Chỉ dùng báo cáo tồn kho (getInventoryReport)
   async getAllocationDetailReport(params?: {
     phongKham?: string;
     search?: string;
@@ -836,10 +838,31 @@ export class SupplyService {
       loaiThayDoi: HistoryType.NHAN_MAU_VE,
     };
 
+    // If filtering by clinic, also filter history by phongKham
+    if (phongKham) {
+      historyFilter.phongKham = phongKham;
+    }
+
     const sampleReturnHistory = await this.historyModel
       .find(historyFilter)
       .populate('phieuCapPhat')
       .exec();
+
+    // OPTIMIZATION: Load all supplies once and cache in Maps
+    const allSupplies = await this.supplyModel.find().exec();
+    const supplyMap = new Map(allSupplies.map(s => [s._id.toString(), s]));
+    
+    // Group supplies by loaiVatTu for fast lookup
+    const suppliesByType = new Map<string, any[]>();
+    for (const supply of allSupplies) {
+      if (!suppliesByType.has(supply.loaiVatTu)) {
+        suppliesByType.set(supply.loaiVatTu, []);
+      }
+      suppliesByType.get(supply.loaiVatTu).push(supply);
+    }
+
+    // Cache allocations by ID for fast lookup
+    const allocationMap = new Map(allocations.map(a => [a._id.toString(), a]));
 
     // Get all clinics for lookup
     const allClinics = await this.clinicModel.find().exec();
@@ -882,11 +905,8 @@ export class SupplyService {
       let clinic: any;
 
       if (history.phieuCapPhat) {
-        // Has allocation - get clinic from allocation
-        const allocation = await this.allocationModel
-          .findById(history.phieuCapPhat)
-          .populate('phongKham')
-          .exec();
+        // Has allocation - get from cache instead of querying
+        const allocation = allocationMap.get(history.phieuCapPhat.toString());
 
         if (!allocation || !allocation.phongKham) continue;
 
@@ -894,10 +914,16 @@ export class SupplyService {
         clinicId = (clinic as any)._id.toString();
         clinicName = (clinic as any).tenPhongKham;
 
+        // If filtering by clinic, skip if this allocation is not for the filtered clinic
+        if (phongKham && clinicId !== phongKham) {
+          continue;
+        }
+
         // Nếu có loaiVatTu, cập nhật lastReturnDate cho TẤT CẢ vật tư thuộc loại đó
         if (history.loaiVatTu) {
           for (const supplyItem of allocation.danhSachVatTu) {
-            const supply = await this.supplyModel.findById(supplyItem.vatTu).exec();
+            // Use cached supply instead of querying
+            const supply = supplyMap.get(supplyItem.vatTu.toString());
             if (!supply || supply.loaiVatTu !== history.loaiVatTu) continue;
 
             const supplyId = supply._id.toString();
@@ -965,8 +991,8 @@ export class SupplyService {
 
         // Nếu có loaiVatTu, cập nhật cho TẤT CẢ vật tư thuộc loại đó
         if (history.loaiVatTu) {
-          // Get all supplies of this type
-          const suppliesOfType = await this.supplyModel.find({ loaiVatTu: history.loaiVatTu }).exec();
+          // Use cached supplies by type instead of querying
+          const suppliesOfType = suppliesByType.get(history.loaiVatTu) || [];
           
           for (const supply of suppliesOfType) {
             const supplyId = supply._id.toString();
@@ -1034,35 +1060,80 @@ export class SupplyService {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
+    const lastMonthHistoryFilter: any = {
+      loaiThayDoi: HistoryType.NHAN_MAU_VE,
+      thoiGian: {
+        $gte: lastMonthStart,
+        $lte: lastMonthEnd,
+      },
+    };
+
+    // If filtering by clinic, also filter last month history
+    if (phongKham) {
+      lastMonthHistoryFilter.phongKham = phongKham;
+    }
+
     const lastMonthHistory = await this.historyModel
-      .find({
-        loaiThayDoi: HistoryType.NHAN_MAU_VE,
-        thoiGian: {
-          $gte: lastMonthStart,
-          $lte: lastMonthEnd,
-        },
-      })
+      .find(lastMonthHistoryFilter)
       .populate('phieuCapPhat')
       .exec();
 
     const lastMonthUsageMap: Map<string, number> = new Map();
 
     for (const history of lastMonthHistory) {
-      if (!history.phieuCapPhat) continue;
+      if (!history.phieuCapPhat) {
+        // History without allocation - use phongKham directly
+        if (!history.phongKham) continue;
 
-      const allocation = await this.allocationModel
-        .findById(history.phieuCapPhat)
-        .populate('phongKham')
-        .exec();
+        let clinicId: string;
+        if (typeof history.phongKham === 'object' && (history.phongKham as any)._id) {
+          clinicId = (history.phongKham as any)._id.toString();
+        } else if (typeof history.phongKham === 'string') {
+          clinicId = history.phongKham;
+        } else {
+          continue;
+        }
+
+        // If filtering by clinic, skip if not matching
+        if (phongKham && clinicId !== phongKham) {
+          continue;
+        }
+
+        // Process history with loaiVatTu - use cached supplies
+        if (history.loaiVatTu) {
+          const suppliesOfType = suppliesByType.get(history.loaiVatTu) || [];
+          for (const supply of suppliesOfType) {
+            const supplyId = supply._id.toString();
+            const key = `${clinicId}_${supplyId}`;
+            const currentUsage = lastMonthUsageMap.get(key) || 0;
+            lastMonthUsageMap.set(key, currentUsage + history.soLuong);
+          }
+        } else if (history.vatTu) {
+          const supplyId = history.vatTu.toString();
+          const key = `${clinicId}_${supplyId}`;
+          const currentUsage = lastMonthUsageMap.get(key) || 0;
+          lastMonthUsageMap.set(key, currentUsage + history.soLuong);
+        }
+        continue;
+      }
+
+      // Use cached allocation instead of querying
+      const allocation = allocationMap.get(history.phieuCapPhat.toString());
 
       if (!allocation) continue;
 
       const clinicId = (allocation.phongKham as any)._id.toString();
 
+      // If filtering by clinic, skip if this allocation is not for the filtered clinic
+      if (phongKham && clinicId !== phongKham) {
+        continue;
+      }
+
       // Nếu có loaiVatTu, tính cho TẤT CẢ vật tư thuộc loại đó
       if (history.loaiVatTu) {
         for (const supplyItem of allocation.danhSachVatTu) {
-          const supply = await this.supplyModel.findById(supplyItem.vatTu).exec();
+          // Use cached supply instead of querying
+          const supply = supplyMap.get(supplyItem.vatTu.toString());
           if (!supply || supply.loaiVatTu !== history.loaiVatTu) continue;
 
           const supplyId = supply._id.toString();
@@ -1078,10 +1149,6 @@ export class SupplyService {
         lastMonthUsageMap.set(key, currentUsage + history.soLuong);
       }
     }
-
-    // Get all supplies
-    const supplies = await this.supplyModel.find().exec();
-    const supplyMap = new Map(supplies.map(s => [s._id.toString(), s]));
 
     // Build final report
     const reportData: any[] = [];
@@ -1115,7 +1182,7 @@ export class SupplyService {
       // Calculate stock warning for clinic
       let canhBaoTonKho = 'Đủ dùng';
       if (soLuongTon < 0) {
-        canhBaoTonKho = 'Chưa cấp (âm)';
+        canhBaoTonKho = 'Âm';
       } else if (soLuongTon === 0) {
         canhBaoTonKho = 'Hết';
       } else if (soLuongTon <= 5) {
@@ -1630,6 +1697,7 @@ export class SupplyService {
             lyDo: `Nhận ${record.soLuongMau} mẫu ${record.loaiVatTu} về từ ${record.clinicName} - Ngày: ${record.ngayNhanMau.toISOString().split('T')[0]}`,
             nguoiThucHien: nguoiNhap,
             phieuCapPhat: targetAllocation._id,
+            phongKham: record.clinicId.toString(),
             thoiGian: record.ngayNhanMau,
           });
 
