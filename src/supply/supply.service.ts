@@ -1193,6 +1193,7 @@ export class SupplyService {
         _id: key,
         phongKham: entry.clinicName,
         tenDungCu: supply.tenVatTu,
+        loaiVatTu: supply.loaiVatTu,
         slCap: entry.soLuongCap,
         slSuDung: entry.soLuongDaDung,
         slTon: soLuongTon,
@@ -1863,10 +1864,6 @@ export class SupplyService {
     try {
       const axios = require('axios');
 
-      console.log('Fetching external cases from API...');
-      console.log('URL: https://api.gennovax.vn/api/inventory/cases');
-      console.log('Params:', { page, limit });
-
       const response = await axios.get('https://api.gennovax.vn/api/inventory/cases', {
         params: { page, limit },
         timeout: 10000, // 10 seconds timeout
@@ -1906,18 +1903,25 @@ export class SupplyService {
     endDate?: string;
   }): Promise<any> {
     const { nguoiThucHien, startDate, endDate } = params;
+    
+    // Mặc định lọc từ ngày 1/4/2026 nếu không có startDate
+    const defaultStartDate = '2026-04-01T00:00:00.000Z';
+    const filterStartDate = startDate || defaultStartDate;
 
     try {
       const axios = require('axios');
 
       console.log('Syncing external cases...');
-      console.log('Params:', { nguoiThucHien, startDate, endDate });
+      console.log('Params:', { nguoiThucHien, startDate: filterStartDate, endDate });
 
       // Lấy tất cả ca từ API
       const response = await axios.get('https://api.gennovax.vn/api/inventory/cases', {
         params: {
           page: 1,
           limit: 1000, // Lấy nhiều để xử lý
+          // Thêm filter ngày vào API call nếu API hỗ trợ
+          startDate: filterStartDate,
+          endDate: endDate,
         },
         timeout: 30000, // 30 seconds timeout
       });
@@ -1944,19 +1948,26 @@ export class SupplyService {
       const errors: string[] = [];
       const skippedCases: string[] = [];
 
-      // Lọc theo ngày nếu có
-      let filteredCases = cases;
-      if (startDate || endDate) {
-        filteredCases = cases.filter((c: any) => {
-          if (!c.createdAt) return false;
-          const caseDate = new Date(c.createdAt);
-          if (startDate && caseDate < new Date(startDate)) return false;
-          if (endDate && caseDate > new Date(endDate)) return false;
-          return true;
-        });
-      }
+      // Lọc theo ngày - LUÔN áp dụng filter từ 1/4/2026
+      const filterDate = new Date(filterStartDate);
+      const endFilterDate = endDate ? new Date(endDate) : null;
+      
+      let filteredCases = cases.filter((c: any) => {
+        if (!c.createdAt && !c.receivedAt) return false;
+        
+        const caseDate = new Date(c.createdAt || c.receivedAt);
+        
+        // Bỏ qua các ca trước ngày filter
+        if (caseDate < filterDate) return false;
+        
+        // Bỏ qua các ca sau ngày kết thúc (nếu có)
+        if (endFilterDate && caseDate > endFilterDate) return false;
+        
+        return true;
+      });
 
-      console.log(`Processing ${filteredCases.length} cases after date filter`);
+      console.log(`Processing ${filteredCases.length} cases after date filter (from ${filterStartDate})`);
+      console.log(`Filtered out ${cases.length - filteredCases.length} cases before ${filterStartDate}`);
 
       // Xử lý từng ca
       for (const caseData of filteredCases) {
@@ -2156,7 +2167,14 @@ export class SupplyService {
 
       return {
         success: true,
-        message: `Đã xử lý ${processedCases.length} ca thành công`,
+        message: `Đã xử lý ${processedCases.length} ca thành công (lọc từ ${filterStartDate})`,
+        filterInfo: {
+          startDate: filterStartDate,
+          endDate: endDate || 'không giới hạn',
+          totalFromAPI: cases.length,
+          afterDateFilter: filteredCases.length,
+          filteredOut: cases.length - filteredCases.length,
+        },
         totalCases: filteredCases.length,
         processedCases: processedCases.length,
         skippedCases: skippedCases.length,
@@ -2491,11 +2509,11 @@ export class SupplyService {
           logs,
         };
       } else {
-        logs.push(`\n❌ No supplies matched in allocation`);
+        logs.push(`\nNo supplies matched in allocation`);
         return { success: false, message: 'No matching supplies', logs };
       }
     } catch (error) {
-      logs.push(`\n❌ Error: ${error.message}`);
+      logs.push(`\nError: ${error.message}`);
       return { success: false, error: error.message, logs };
     }
   }
@@ -2559,7 +2577,7 @@ export class SupplyService {
         })),
       };
     } catch (error) {
-      throw new BadRequestException(`Lỗi khi kiểm tra: ${error.message}`);
+      throw new BadRequestException('Loi khi kiem tra: ' + error.message);
     }
   }
 
@@ -2608,7 +2626,7 @@ export class SupplyService {
           if (!supply) continue;
 
           const supplyId = supply._id.toString();
-          const key = `${clinicId}_${supplyId}`;
+          const key = clinicId + '_' + supplyId;
 
           if (!reportMap.has(key)) {
             reportMap.set(key, {
@@ -2656,7 +2674,7 @@ export class SupplyService {
         histories: historyDetails,
       };
     } catch (error) {
-      throw new BadRequestException(`Lỗi khi kiểm tra: ${error.message}`);
+      throw new BadRequestException('Loi khi kiem tra: ' + error.message);
     }
   }
 }

@@ -8,8 +8,8 @@ export class SupplyCronService {
 
   constructor(private readonly supplyService: SupplyService) {}
 
-  // Chạy mỗi 5 phút để đồng bộ ca từ API bên thứ 3
-  @Cron('*/5 * * * *', {
+  // Chạy mỗi 2 ngày lúc 2:00 sáng để đồng bộ ca từ API bên thứ 3
+  @Cron('0 2 */2 * *', {
     name: 'sync-external-cases',
     timeZone: 'Asia/Ho_Chi_Minh',
   })
